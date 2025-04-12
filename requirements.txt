@@ -1,0 +1,7 @@
+flask
+h5py
+matplotlib
+numpy==1.23.5
+scipy
+scikit-learn
+tensorflow==2.10.1

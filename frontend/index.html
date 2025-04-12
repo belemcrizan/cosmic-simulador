@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="pt-br" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cosmic Power Spectrum Analyzer | CLASS + pyExSHalos</title>
+  
+  <!-- Fontes e Ícones -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  
+  <!-- Bibliotecas Visuais -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/three@0.132.2/build/three.min.js"></script>
+  
+  <style>
+    :root {
+      --cosmic-primary: #8a63f8;
+      --cosmic-secondary: #00e0ff;
+      --cosmic-dark: #0b0818;
+      --cosmic-darker: #070511;
+      --cosmic-card: rgba(20, 15, 45, 0.8);
+    }
+    
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--cosmic-dark);
+      color: #f0f3ff;
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(138, 99, 248, 0.15) 0%, transparent 30%),
+        radial-gradient(circle at 90% 80%, rgba(0, 224, 255, 0.15) 0%, transparent 30%);
+    }
+    
+    .cosmic-glass {
+      background: var(--cosmic-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+    
+    .cosmic-glass:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 40px rgba(138, 99, 248, 0.25);
+    }
+    
+    .cosmic-btn {
+      background: linear-gradient(135deg, var(--cosmic-primary), var(--cosmic-secondary));
+      border: none;
+      border-radius: 12px;
+      padding: 12px 24px;
+      font-weight: 600;
+      color: white;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .cosmic-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(138, 99, 248, 0.4);
+    }
+    
+    .cosmic-btn:active {
+      transform: translateY(0);
+    }
+    
+    .param-slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+    }
+    
+    .param-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--cosmic-primary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .param-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+      box-shadow: 0 0 0 4px rgba(138, 99, 248, 0.3);
+    }
+    
+    .visualization-container {
+      height: 500px;
+      width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--cosmic-darker);
+    }
+    
+    .loading-animation {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: var(--cosmic-primary);
+      animation: spin 1s ease-in-out infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .cosmic-tooltip {
+      --bs-tooltip-bg: var(--cosmic-primary);
+      --bs-tooltip-opacity: 1;
+    }
+    
+    .nav-tabs .nav-link {
+      color: rgba(255, 255, 255, 0.6);
+      border: none;
+      padding: 12px 20px;
+      font-weight: 500;
+    }
+    
+    .nav-tabs .nav-link.active {
+      color: white;
+      background: transparent;
+      border-bottom: 3px solid var(--cosmic-primary);
+    }
+    
+    ::-webkit-scrollbar {
+      width: 10px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: var(--cosmic-darker);
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: var(--cosmic-primary);
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark sticky-top" style="background: rgba(11, 8, 24, 0.95); backdrop-filter: blur(10px);">
+    <div class="container">
+      <a class="navbar-brand d-flex align-items-center" href="#">
+        <span class="fs-4 me-2">🌌</span>
+        <span class="fw-bold">Cosmic Analyzer</span>
+      </a>
+      
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      
+      <div class="collapse navbar-collapse" id="navbarContent">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <li class="nav-item">
+            <a class="nav-link active" href="#power-spectrum">
+              <i class="bi bi-graph-up me-1"></i> Power Spectrum
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#density-field">
+              <i class="bi bi-grid-3x3 me-1"></i> Density Field
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#analysis">
+              <i class="bi bi-sliders me-1"></i> Analysis
+            </a>
+          </li>
+        </ul>
+        
+        <div class="d-flex gap-2">
+          <button class="btn btn-outline-light">
+            <i class="bi bi-github"></i>
+          </button>
+          <button class="btn btn-outline-light">
+            <i class="bi bi-question-circle"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <div class="container py-5">
+    <!-- Power Spectrum Section -->
+    <section id="power-spectrum" class="mb-5">
+      <div class="cosmic-glass p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <div>
+            <h2 class="mb-1">
+              <i class="bi bi-graph-up me-2"></i>Power Spectrum Analysis
+            </h2>
+            <p class="text-muted mb-0">Using CLASS v3.2 with Halofit nonlinear corrections</p>
+          </div>
+          <span class="badge rounded-pill" style="background: var(--cosmic-primary);">
+            <i class="bi bi-cpu me-1"></i> Physics Mode
+          </span>
+        </div>
+        
+        <div class="row g-4">
+          <div class="col-lg-8">
+            <div class="visualization-container" id="powerSpectrumPlot">
+              <div class="d-flex justify-content-center align-items-center h-100">
+                <div class="text-center">
+                  <div class="loading-animation mx-auto mb-3"></div>
+                  <p>Calculating power spectrum...</p>
+                </div>
+              </div>
+            </div>
+            
+            <div class="alert alert-danger mt-3 d-none" id="powerSpectrumError">
+              <i class="bi bi-exclamation-triangle-fill me-2"></i>
+              <span id="errorMessage"></span>
+            </div>
+          </div>
+          
+          <div class="col-lg-4">
+            <div class="cosmic-glass p-4 h-100">
+              <ul class="nav nav-tabs mb-4" id="paramsTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link active" id="cosmo-tab" data-bs-toggle="tab" data-bs-target="#cosmoParams" type="button">
+                    <i class="bi bi-stars me-1"></i> Cosmology
+                  </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link" id="compute-tab" data-bs-toggle="tab" data-bs-target="#computeParams" type="button">
+                    <i class="bi bi-gear me-1"></i> Computation
+                  </button>
+                </li>
+              </ul>
+              
+              <div class="tab-content" id="paramsTabContent">
+                <div class="tab-pane fade show active" id="cosmoParams" role="tabpanel">
+                  <div class="mb-3">
+                    <label for="hubbleParam" class="form-label d-flex justify-content-between">
+                      <span>Hubble Parameter <i class="bi bi-info-circle" data-bs-toggle="tooltip" title="Dimensionless Hubble constant"></i></span>
+                      <span class="badge bg-dark rounded-pill" id="hubbleValue">0.67</span>
+                    </label>
+                    <input type="range" class="param-slider" min="0.6" max="0.8" step="0.01" id="hubbleParam" value="0.67">
+                  </div>
+                  
+                  <div class="mb-3">
+                    <label for="omegaB" class="form-label d-flex justify-content-between">
+                      <span>Ω<sub>b</sub> <i class="bi bi-info-circle" data-bs-toggle="tooltip" title="Baryon density parameter"></i></span>
+                      <span class="badge bg-dark rounded-pill" id="omegaBValue">0.022</span>
+                    </label>
+                    <input type="range" class="param-slider" min="0.01" max="0.05" step="0.001" id="omegaB" value="0.022">
+                  </div>
+                  
+                  <div class="mb-3">
+                    <label for="omegaCDM" class="form-label d-flex justify-content-between">
+                      <span>Ω<sub>cdm</sub> <i class="bi bi-info-circle" data-bs-toggle="tooltip" title="Cold Dark Matter density parameter"></i></span>
+                      <span class="badge bg-dark rounded-pill" id="omegaCDMValue">0.12</span>
+                    </label>
+                    <input type="range" class="param-slider" min="0.05" max="0.2" step="0.01" id="omegaCDM" value="0.12">
+                  </div>
+                  
+                  <div class="mb-3">
+                    <label for="A_s" class="form-label d-flex justify-content-between">
+                      <span>A<sub>s</sub> (×10⁻⁹) <i class="bi bi-info-circle" data-bs-toggle="tooltip" title="Primordial curvature perturbation amplitude"></i></span>
+                      <span class="badge bg-dark rounded-pill" id="A_sValue">2.1</span>
+                    </label>
+                    <input type="range" class="param-slider" min="1.5" max="3.0" step="0.1" id="A_s" value="2.1">
+                  </div>
+                  
+                  <div class="mb-4">
+                    <label for="n_s" class="form-label d-flex justify-content-between">
+                      <span>n<sub>s</sub> <i class="bi bi-info-circle" data-bs-toggle="tooltip" title="Scalar spectral index"></i></span>
+                      <span class="badge bg-dark rounded-pill" id="n_sValue">0.96</span>
+                    </label>
+                    <input type="range" class="param-slider" min="0.9" max="1.1" step="0.01" id="n_s" value="0.96">
+                  </div>
+                </div>
+                
+                <div class="tab-pane fade" id="computeParams" role="tabpanel">
+                  <div class="mb-3">
+                    <label for="kMin" class="form-label">k<sub>min</sub> [h/Mpc]</label>
+                    <input type="number" class="form-control" id="kMin" value="0.0001" step="0.0001">
+                  </div>
+                  
+                  <div class="mb-3">
+                    <label for="kMax" class="form-label">k<sub>max</sub> [h/Mpc]</label>
+                    <input type="number" class="form-control" id="kMax" value="10.0" step="0.1">
+                  </div>
+                  
+                  <div class="mb-3">
+                    <label for="numPoints" class="form-label">Number of Points</label>
+                    <select class="form-select" id="numPoints">
+                      <option value="50">50 (Fast)</option>
+                      <option value="100" selected>100 (Standard)</option>
+                      <option value="200">200 (Detailed)</option>
+                      <option value="500">500 (High Res)</option>
+                    </select>
+                  </div>
+                  
+                  <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="nonLinear" checked>
+                    <label class="form-check-label" for="nonLinear">Non-linear corrections</label>
+                  </div>
+                </div>
+              </div>
+              
+              <button id="calculateBtn" class="cosmic-btn w-100 mt-2">
+                <i class="bi bi-lightning-charge-fill me-2"></i> Calculate Power Spectrum
+              </button>
+              
+              <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-outline-light w-50">
+                  <i class="bi bi-arrow-clockwise me-2"></i> Reset
+                </button>
+                <button class="btn btn-outline-light w-50">
+                  <i class="bi bi-bookmark me-2"></i> Presets
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Density Field Section -->
+    <section id="density-field" class="mb-5">
+      <div class="cosmic-glass p-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <div>
+            <h2 class="mb-1">
+              <i class="bi bi-grid-3x3 me-2"></i>Density Field Simulation
+            </h2>
+            <p class="text-muted mb-0">Gaussian random field generated from power spectrum</p>
+          </div>
+          <span class="badge rounded-pill" style="background: var(--cosmic-secondary);">
+            <i class="bi bi-magic me-1"></i> pyExSHalos
+          </span>
+        </div>
+        
+        <div class="row g-4">
+          <div class="col-lg-8">
+            <div class="visualization-container" id="densityFieldViz">
+              <!-- 3D visualization will go here -->
+              <div class="d-flex justify-content-center align-items-center h-100">
+                <p class="text-muted">Density field visualization will appear here after calculation</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="col-lg-4">
+            <div class="cosmic-glass p-4 h-100">
+              <h5 class="mb-3">
+                <i class="bi bi-tools me-2"></i> Simulation Parameters
+              </h5>
+              
+              <div class="mb-3">
+                <label for="boxSize" class="form-label d-flex justify-content-between">
+                  <span>Box Size [Mpc/h]</span>
+                  <span class="badge bg-dark rounded-pill" id="boxSizeValue">1000</span>
+                </label>
+                <input type="range" class="param-slider" min="500" max="2000" step="100" id="boxSize" value="1000">
+              </div>
+              
+              <div class="mb-3">
+                <label for="gridSize" class="form-label d-flex justify-content-between">
+                  <span>Grid Resolution</span>
+                  <span class="badge bg-dark rounded-pill" id="gridSizeValue">128</span>
+                </label>
+                <select class="form-select" id="gridSize">
+                  <option value="64">64³ (Low)</option>
+                  <option value="128" selected>128³ (Medium)</option>
+                  <option value="256">256³ (High)</option>
+                </select>
+              </div>
+              
+              <div class="mb-3">
+                <label for="randomSeed" class="form-label">Random Seed</label>
+                <input type="number" class="form-control" id="randomSeed" value="42">
+              </div>
+              
+              <div class="mb-4">
+                <label for="visualizationType" class="form-label">Visualization Type</label>
+                <select class="form-select" id="visualizationType">
+                  <option value="2d-slice">2D Slice</option>
+                  <option value="3d-render">3D Rendering</option>
+                  <option value="isosurface">Isosurface</option>
+                </select>
+              </div>
+              
+              <button id="generateFieldBtn" class="cosmic-btn w-100" disabled>
+                <i class="bi bi-hourglass-split me-2"></i> Generate from Power Spectrum
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Analysis Section -->
+    <section id="analysis">
+      <div class="cosmic-glass p-4">
+        <h2 class="mb-4">
+          <i class="bi bi-speedometer2 me-2"></i>Comparative Analysis
+        </h2>
+        
+        <div class="visualization-container" id="comparisonPlot">
+          <!-- Comparison plot will go here -->
+        </div>
+        
+        <div class="row mt-4">
+          <div class="col-md-6">
+            <div class="cosmic-glass p-3 h-100">
+              <h5 class="mb-3">
+                <i class="bi bi-clipboard-data me-2"></i> Statistics
+              </h5>
+              <div class="table-responsive">
+                <table class="table table-dark table-hover">
+                  <thead>
+                    <tr>
+                      <th>Metric</th>
+                      <th>Theoretical</th>
+                      <th>Simulated</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>σ<sub>8</sub></td>
+                      <td id="sigma8Theory">-</td>
+                      <td id="sigma8Sim">-</td>
+                    </tr>
+                    <tr>
+                      <td>Mean Density</td>
+                      <td id="meanDensityTheory">0</td>
+                      <td id="meanDensitySim">-</td>
+                    </tr>
+                    <tr>
+                      <td>Variance</td>
+                      <td id="varianceTheory">1</td>
+                      <td id="varianceSim">-</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          
+          <div class="col-md-6">
+            <div class="cosmic-glass p-3 h-100">
+              <h5 class="mb-3">
+                <i class="bi bi-download me-2"></i> Export Data
+              </h5>
+              <button class="btn btn-outline-light w-100 mb-2">
+                <i class="bi bi-file-earmark-arrow-down me-2"></i> Power Spectrum (CSV)
+              </button>
+              <button class="btn btn-outline-light w-100 mb-2">
+                <i class="bi bi-file-earmark-binary me-2"></i> Density Field (HDF5)
+              </button>
+              <button class="btn btn-outline-light w-100 mb-2">
+                <i class="bi bi-file-earmark-image me-2"></i> Visualizations (PNG)
+              </button>
+              <button class="btn btn-outline-light w-100">
+                <i class="bi bi-file-earmark-zip me-2"></i> All Data (ZIP)
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Footer -->
+  <footer class="py-5 mt-5" style="background: rgba(11, 8, 24, 0.95);">
+    <div class="container">
+      <div class="row">
+        <div class="col-lg-4 mb-4 mb-lg-0">
+          <h3 class="h5 mb-3">Cosmic Analyzer</h3>
+          <p class="small text-muted">
+            Advanced cosmological analysis platform powered by CLASS and pyExSHalos.
+          </p>
+          <div class="d-flex gap-3">
+            <a href="#" class="text-decoration-none text-white">
+              <i class="bi bi-github fs-5"></i>
+            </a>
+            <a href="#" class="text-decoration-none text-white">
+              <i class="bi bi-twitter-x fs-5"></i>
+            </a>
+            <a href="#" class="text-decoration-none text-white">
+              <i class="bi bi-book fs-5"></i>
+            </a>
+          </div>
+        </div>
+        
+        <div class="col-lg-2 col-md-4 mb-4 mb-md-0">
+          <h4 class="h6 mb-3">Navigation</h4>
+          <ul class="list-unstyled small">
+            <li class="mb-2"><a href="#power-spectrum" class="text-decoration-none">Power Spectrum</a></li>
+            <li class="mb-2"><a href="#density-field" class="text-decoration-none">Density Field</a></li>
+            <li class="mb-2"><a href="#analysis" class="text-decoration-none">Analysis</a></li>
+          </ul>
+        </div>
+        
+        <div class="col-lg-3 col-md-4 mb-4 mb-md-0">
+          <h4 class="h6 mb-3">Resources</h4>
+          <ul class="list-unstyled small">
+            <li class="mb-2"><a href="#" class="text-decoration-none">Documentation</a></li>
+            <li class="mb-2"><a href="#" class="text-decoration-none">Tutorials</a></li>
+            <li class="mb-2"><a href="#" class="text-decoration-none">API Reference</a></li>
+          </ul>
+        </div>
+        
+        <div class="col-lg-3 col-md-4">
+          <h4 class="h6 mb-3">About</h4>
+          <ul class="list-unstyled small">
+            <li class="mb-2"><i class="bi bi-code-slash me-2"></i> Version 1.0.0</li>
+            <li class="mb-2"><i class="bi bi-cpu me-2"></i> CLASS v3.2</li>
+            <li class="mb-2"><i class="bi bi-gem me-2"></i> pyExSHalos</li>
+          </ul>
+        </div>
+      </div>
+      
+      <hr class="my-4 bg-secondary">
+      
+      <div class="text-center small text-muted">
+        <p class="mb-0">
+          © 2024 Cosmic Analyzer | Designed for cosmological research
+        </p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  
+  <script>
+    // Initialize tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+      return new bootstrap.Tooltip(tooltipTriggerEl, {
+        customClass: 'cosmic-tooltip'
+      });
+    });
+
+    // Slider value updates
+    document.querySelectorAll('.param-slider').forEach(slider => {
+      const valueElement = document.getElementById(slider.id + 'Value');
+      slider.addEventListener('input', () => {
+        valueElement.textContent = slider.value;
+      });
+    });
+
+    // Calculate Power Spectrum
+    document.getElementById('calculateBtn').addEventListener('click', async function() {
+      const calculateBtn = this;
+      const plotElement = document.getElementById('powerSpectrumPlot');
+      const errorElement = document.getElementById('powerSpectrumError');
+      
+      // Show loading state
+      calculateBtn.innerHTML = '<div class="loading-animation me-2"></div> Calculating...';
+      calculateBtn.disabled = true;
+      plotElement.innerHTML = '<div class="d-flex justify-content-center align-items-center h-100"><div class="text-center"><div class="loading-animation mx-auto mb-3"></div><p>Calculating power spectrum...</p></div></div>';
+      errorElement.classList.add('d-none');
+      
+      try {
+        // Get parameters
+        const params = {
+          h: parseFloat(document.getElementById('hubbleParam').value),
+          omega_b: parseFloat(document.getElementById('omegaB').value),
+          omega_cdm: parseFloat(document.getElementById('omegaCDM').value),
+          A_s: parseFloat(document.getElementById('A_s').value) * 1e-9,
+          n_s: parseFloat(document.getElementById('n_s').value),
+          k_min: parseFloat(document.getElementById('kMin').value),
+          k_max: parseFloat(document.getElementById('kMax').value),
+          num_points: parseInt(document.getElementById('numPoints').value),
+          non_linear: document.getElementById('nonLinear').checked ? 'halofit' : ''
+        };
+        
+        // Simulate API call (replace with actual fetch)
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        // Generate mock data (replace with actual data from API)
+        const k = Array.from({length: params.num_points}, (_, i) => {
+          return params.k_min * Math.pow(params.k_max/params.k_min, i/(params.num_points-1));
+        });
+        
+        const Pk = k.map(ki => {
+          const linear = 10000 * Math.pow(ki, -1.5 + (params.n_s - 0.96));
+          return params.non_linear ? linear * (1 + ki/5) : linear;
+        });
+        
+        // Update plot
+        updatePowerSpectrumPlot(k, Pk);
+        
+        // Enable generate field button
+        document.getElementById('generateFieldBtn').disabled = false;
+        document.getElementById('generateFieldBtn').innerHTML = '<i class="bi bi-magic me-2"></i> Generate from Power Spectrum';
+        
+        // Update statistics
+        document.getElementById('sigma8Theory').textContent = (0.8 * params.h).toFixed(3);
+        
+      } catch (error) {
+        console.error('Calculation error:', error);
+        errorElement.querySelector('#errorMessage').textContent = error.message;
+        errorElement.classList.remove('d-none');
+      } finally {
+        calculateBtn.innerHTML = '<i class="bi bi-lightning-charge-fill me-2"></i> Calculate Power Spectrum';
+        calculateBtn.disabled = false;
+      }
+    });
+    
+    // Update Power Spectrum Plot
+    function updatePowerSpectrumPlot(k, Pk) {
+      const plotElement = document.getElementById('powerSpectrumPlot');
+      
+      Plotly.newPlot(plotElement, [{
+        x: k,
+        y: Pk,
+        type: 'line',
+        line: {color: '#8a63f8', width: 3},
+        name: 'P(k)'
+      }], {
+        title: 'Matter Power Spectrum',
+        xaxis: {
+          title: 'k [h/Mpc]',
+          type: 'log',
+          gridcolor: 'rgba(255, 255, 255, 0.1)'
+        },
+        yaxis: {
+          title: 'P(k) [(Mpc/h)³]',
+          type: 'log',
+          gridcolor: 'rgba(255, 255, 255, 0.1)'
+        },
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        font: {color: '#f0f3ff'},
+        margin: {t: 40, r: 40, b: 60, l: 60},
+        showlegend: false
+      });
+    }
+    
+    // Generate Density Field
+    document.getElementById('generateFieldBtn').addEventListener('click', function() {
+      const btn = this;
+      const vizElement = document.getElementById('densityFieldViz');
+      
+      // Show loading state
+      btn.innerHTML = '<div class="loading-animation me-2"></div> Generating...';
+      btn.disabled = true;
+      vizElement.innerHTML = '<div class="d-flex justify-content-center align-items-center h-100"><div class="text-center"><div class="loading-animation mx-auto mb-3"></div><p>Generating density field...</p></div></div>';
+      
+      // Simulate generation (replace with actual pyExSHalos call)
+      setTimeout(() => {
+        // Create mock 3D visualization
+        vizElement.innerHTML = '<canvas id="densityFieldCanvas" style="width:100%; height:100%;"></canvas>';
+        
+        // Simple Three.js visualization (would be more complex in real app)
+        const canvas = document.getElementById('densityFieldCanvas');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({canvas, antialias: true});
+        
+        // Add some particles
+        const particles = new THREE.BufferGeometry();
+        const particleCount = 5000;
+        const positions = new Float32Array(particleCount * 3);
+        
+        for (let i = 0; i < particleCount; i++) {
+          positions[i * 3] = (Math.random() - 0.5) * 10;
+          positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
+          positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
+        }
+        
+        particles.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        
+        const particleMaterial = new THREE.PointsMaterial({
+          color: 0x8a63f8,
+          size: 0.05,
+          transparent: true,
+          opacity: 0.8
+        });
+        
+        const particleSystem = new THREE.Points(particles, particleMaterial);
+        scene.add(particleSystem);
+        
+        camera.position.z = 5;
+        
+        function animate() {
+          requestAnimationFrame(animate);
+          particleSystem.rotation.x += 0.001;
+          particleSystem.rotation.y += 0.001;
+          renderer.render(scene, camera);
+        }
+        
+        animate();
+        
+        // Update statistics
+        document.getElementById('meanDensitySim').textContent = '0.002';
+        document.getElementById('varianceSim').textContent = '0.98';
+        document.getElementById('sigma8Sim').textContent = '0.79';
+        
+        // Reset button
+        btn.innerHTML = '<i class="bi bi-magic me-2"></i> Regenerate Field';
+        btn.disabled = false;
+      }, 2000);
+    });
+  </script>
+</body>
+</html>
