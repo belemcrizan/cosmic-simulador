@@ -1,4 +1,4 @@
-# Cosmic Analysis Platform
+# cosmic-simulador
 
 Plataforma para análise de dados cosmológicos, incluindo:
 
